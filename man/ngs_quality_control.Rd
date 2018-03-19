@@ -2,7 +2,7 @@
 % Please edit documentation in R/ngs_quality_control.R
 \name{ngs_quality_control}
 \alias{ngs_quality_control}
-\title{NGS Quality Control section}
+\title{NGS Quality Control}
 \usage{
 ngs_quality_control(title, sample.pathnames, fastqc.command, output.dir,
   sample.ids = NULL, MAX.THREADS = 8)
@@ -19,8 +19,6 @@ ngs_quality_control(title, sample.pathnames, fastqc.command, output.dir,
 \item{sample.ids}{optional names for the reports.}
 
 \item{MAX.THREADS}{maximum number of concurrent threads to use.}
-
-\item{...}{}
 }
 \value{
 A list containing the following elements:

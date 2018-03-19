@@ -1,4 +1,4 @@
-#' NGS Quality Control section
+#' NGS Quality Control
 #'
 #' This function performs quality control of NGS datasets using FASTQC and multiqc. FastQC is run on each sample...
 #'
@@ -8,7 +8,6 @@
 #' @param output.dir output directory for results.
 #' @param sample.ids optional names for the reports.
 #' @param MAX.THREADS maximum number of concurrent threads to use.
-#' @param ...
 #'
 #' @return A list containing the following elements:
 #'
@@ -18,8 +17,6 @@
 #'
 #' @examples
 ngs_quality_control <- function(title, sample.pathnames, fastqc.command, output.dir, sample.ids = NULL, MAX.THREADS = 8) {
-  require(parallel)
-
   MODULE.DESCRIPTION <-
     "This step performs quality control of sequencing data using
   [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) and
@@ -58,7 +55,7 @@ ngs_quality_control <- function(title, sample.pathnames, fastqc.command, output.
 
   # Run FastQC on all samples (except if already done)
   w <- which(reports$target.exists == FALSE)
-  res <- mclapply(reports$command[w], function(x) {
+  res <- parallel::mclapply(reports$command[w], function(x) {
     system(x)
   }, mc.cores = MAX.THREADS)
 
