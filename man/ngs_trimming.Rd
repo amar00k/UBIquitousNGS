@@ -5,7 +5,7 @@
 \title{NGS Trimming}
 \usage{
 ngs_trimming(sample.pathnames, cutadapt.options, cutadapt.command, output.dir,
-  sample.ids = NULL, MAX.THREADS = 8)
+  sample.ids = NULL, MAX.THREADS = 8, title = "")
 }
 \arguments{
 \item{sample.pathnames}{samples to process.}

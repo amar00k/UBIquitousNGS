@@ -2,6 +2,8 @@
 #'
 #' Performs trimming of fastq files.
 #'
+#' @import UBIquitous
+#'
 #' @param sample.pathnames samples to process.
 #' @param cutadapt.options options to pass to cutadapt command line.
 #' @param cutadapt.command command to run cutadapt.
@@ -18,7 +20,8 @@ ngs_trimming <- function(sample.pathnames,
                          cutadapt.command,
                          output.dir,
                          sample.ids = NULL,
-                         MAX.THREADS=8) {
+                         MAX.THREADS=8,
+                         title="") {
 
   MODULE.DESCRIPTION <- "This step performs trimming of the raw reads using cutadapt
   in order to remove adapter sequences still present in the reads as well as removing
@@ -56,7 +59,7 @@ ngs_trimming <- function(sample.pathnames,
   dir.create(file.path(output.dir), recursive = TRUE, showWarnings = FALSE)
 
   w <- which(data$target.exists == FALSE)
-  res <- mclapply(data$command[w], function(x) {
+  res <- parallel::mclapply(data$command[w], function(x) {
     system(x)
   }, mc.cores = MAX.THREADS)
 
@@ -83,7 +86,7 @@ ngs_trimming <- function(sample.pathnames,
 
   # Setup the output chunks
   chunks <- list(
-    tab1 = UBIquitous::table_chunk(
+    tab1 = table_chunk(
       title="Summary of trimming procedure",
       description="Summary of trimming procedure showing number of processed reads, number of reads from which adapter sequences were removed and number of reads that were quality trimmed.",
       dataframe=Table1
@@ -92,7 +95,5 @@ ngs_trimming <- function(sample.pathnames,
 
   par <- UBIquitous::extract_parameters()
 
-  return(list(chunks=chunks,
-              par=par,
-              description=MODULE.DESCRIPTION))
+  return(list(title=title, chunks=chunks, par=par, description=MODULE.DESCRIPTION))
 }

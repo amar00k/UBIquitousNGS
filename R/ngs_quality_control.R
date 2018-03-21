@@ -2,6 +2,8 @@
 #'
 #' This function performs quality control of NGS datasets using FASTQC and multiqc. FastQC is run on each sample...
 #'
+#' @import UBIquitous
+#'
 #' @param title title of the section
 #' @param sample.pathnames samples to process.
 #' @param fastqc.command command to run fastqc.
@@ -16,7 +18,7 @@
 #' @export
 #'
 #' @examples
-ngs_quality_control <- function(title, sample.pathnames, fastqc.command, output.dir, sample.ids = NULL, MAX.THREADS = 8) {
+ngs_quality_control <- function(sample.pathnames, fastqc.command, output.dir, sample.ids = NULL, MAX.THREADS = 8, title="") {
   MODULE.DESCRIPTION <-
     "This step performs quality control of sequencing data using
   [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) and
@@ -125,25 +127,25 @@ ngs_quality_control <- function(title, sample.pathnames, fastqc.command, output.
 
   # Setup the output chunks
   chunks <- list(
-    fig1 = UBIquitous::figure_chunk(
+    fig1 = figure_chunk(
       fun = make.fig1,
       title="Summary of sample quality control",
       description='Summary figure of quality control results indicating potential biases in the samples. Legend: <span style="color:green">Pass</span>, <span style="color:orange">Warn</span>, <span style="color:red">Fail</span>.',
       width = 4 + 0.4 * nrow(reports)
     ),
-    tab1 = UBIquitous::table_chunk(
+    tab1 = table_chunk(
       dataframe = Table1,
       title="FastQC analysis reports for all samples",
       description="Summary table of quality control results displaying basic sample statistics."
     ),
-    file1 = UBIquitous::file_chunk(
+    file1 = file_chunk(
       uri=file.path(output.dir, "multiqc_report.html"),
       title="MultiQC aggregated report",
       description="This report aggregates the above FastQC analyses into a single report allowing for quick comparison of dataset characteristics."
     )
   )
 
-  par <- UBIquitous::extract_parameters()
+  par <- extract_parameters()
 
   return(list(title=title,
               chunks=chunks,

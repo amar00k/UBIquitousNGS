@@ -4,12 +4,10 @@
 \alias{ngs_quality_control}
 \title{NGS Quality Control}
 \usage{
-ngs_quality_control(title, sample.pathnames, fastqc.command, output.dir,
-  sample.ids = NULL, MAX.THREADS = 8)
+ngs_quality_control(sample.pathnames, fastqc.command, output.dir,
+  sample.ids = NULL, MAX.THREADS = 8, title = "")
 }
 \arguments{
-\item{title}{title of the section}
-
 \item{sample.pathnames}{samples to process.}
 
 \item{fastqc.command}{command to run fastqc.}
@@ -19,6 +17,8 @@ ngs_quality_control(title, sample.pathnames, fastqc.command, output.dir,
 \item{sample.ids}{optional names for the reports.}
 
 \item{MAX.THREADS}{maximum number of concurrent threads to use.}
+
+\item{title}{title of the section}
 }
 \value{
 A list containing the following elements:
