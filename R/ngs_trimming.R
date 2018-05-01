@@ -95,5 +95,9 @@ ngs_trimming <- function(sample.pathnames,
 
   par <- UBIquitous::extract_parameters()
 
-  return(list(title=title, chunks=chunks, par=par, description=MODULE.DESCRIPTION))
+  return(list(title=title,
+              chunks=chunks,
+              par=par,
+              description=MODULE.DESCRIPTION,
+              trimmed.pathnames=data$target.filename))
 }

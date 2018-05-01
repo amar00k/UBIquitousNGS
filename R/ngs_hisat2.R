@@ -15,6 +15,8 @@
 #' @return
 #' @export
 #'
+#' @import ggplot2
+#'
 #' @examples
 ngs_hisat2 <- function(reads1.pathnames,
                        sample.ids,
@@ -23,16 +25,19 @@ ngs_hisat2 <- function(reads1.pathnames,
                        genome.fasta,
                        genome.index.name,
                        output.dir,
+                       multiqc.command = "multiqc",
                        MAX.THREADS=8,
                        reads2.pathnames = rep(NA, length(reads1.pathnames)),
                        title="") {
   MODULE.DESCRIPTION <- "This step maps the sequenced reads to a reference genome
   using [hisat2](https://ccb.jhu.edu/software/hisat2/index.shtml)."
 
-  # reads2.pathnames <- ifelse(is.null(reads2.pathnames), rep(NA, length(reads1.pathnames)), reads2.pathnames)
+  # log
+  log.basename <- file.path(output.dir, "ngs_hisat2")
 
   # build the index
   cmd.build <- paste(hisat2.build.command,
+                     "-p", MAX.THREADS,
                      genome.fasta,
                      genome.index.name)
 
@@ -41,8 +46,9 @@ ngs_hisat2 <- function(reads1.pathnames,
   # check for index and build
   res <- integer(0)
   if (!file.exists(file.check)) {
-    message <- system(paste(cmd.build, "2>&1"), intern=TRUE)
-    res <- attr(message, "status")
+    #message <- system(paste(cmd.build, "2>&1"), intern=TRUE)
+    #res <- attr(message, "status")
+    run_system(cmd.build, log.basename = log.basename)
   }
 
   if (length(res) != 0) {
@@ -73,15 +79,17 @@ ngs_hisat2 <- function(reads1.pathnames,
 
     map.cmd <- paste(hisat2.command,
                      flag.type,
-                     # "-p", MAX.THREADS,
+                     "-p", MAX.THREADS,
                      "--new-summary --summary-file", file.path(target.dir, paste0(sample.id, ".log")),
                      "-x", genome.index.name,
                      flag.reads,
                      ">", file.path(target.dir, paste0(sample.id, ".sam")))
 
-    paste(c(map.cmd, sam.to.bam.commands(target.dir, sample.id)), collapse="\n")
+    #paste(c(map.cmd, sam.to.bam.commands(target.dir, sample.id)), collapse="\n")
+    #paste(c(map.cmd, sam.to.bam.commands(target.dir, sample.id)), collapse="\n")
   }
 
+  target.sams <- file.path(output.dir, paste0(sample.ids, ".sam"))
   target.files <- file.path(output.dir, paste0(sample.ids, ".sorted.bam"))
 
   map.cmds <- unlist(lapply(1:length(sample.ids),
@@ -89,75 +97,56 @@ ngs_hisat2 <- function(reads1.pathnames,
                                                              reads2.pathnames[i],
                                                              sample.ids[i],
                                                              output.dir)))
-  # run the mapping
-  dir.create(output.dir, recursive = TRUE, showWarnings = FALSE)
+  convert.commands <- sapply(1:length(sample.ids),
+                             function(i) paste(sam.to.bam.commands(output.dir, sample.ids[i]), collapse="\n"))
+
+  # dir.create(output.dir, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(output.dir)) {
+    run_system(paste("mkdir -p", output.dir), log.basename)
+  }
 
   w <- which(!file.exists(target.files))
-  map.res <- unlist(parallel::mclapply(map.cmds[w], system, mc.cores = MAX.THREADS))
+  wsam <- which(!file.exists(target.sams))
+  wsam <- intersect(wsam, w)
 
-  # multiqc on alignments
-  multiqc.file <- file.path(output.dir, "multiqc_report.html")
+  run_system(map.cmds[wsam], log.basename = log.basename)
+  run_system_parallel(convert.commands[w], log.basename = log.basename, max.cores = MAX.THREADS)
 
-  if (!file.exists(multiqc.file)) {
-    system(paste("multiqc", "-o", output.dir, output.dir))
-  } else {
-    # check that all samples are processed by multiqc
-    mqc <- read.table(file.path(output.dir, "multiqc_data", "multiqc_hisat2.txt"), sep="\t", header=TRUE)
-
-    if (!all(sample.ids %in% rownames(mqc))) {
-      system(paste("multiqc", "-o", output.dir, output.dir))
-    }
-  }
+  # Run MultiQC on results
+  multiqc <- ngs_multiqc(input.dir = file.path(output.dir),
+                         output.dir = file.path(output.dir, "multiqc"),
+                         multiqc.command = multiqc.command,
+                         multiqc.options = paste("-x", paste0(basename(log.basename), ".stderr.txt")), # exclude
+                         log.basename = log.basename)
 
   # make Table1
   bam.links <- paste0("[ bam ](./", file.path(output.dir, paste0(sample.ids, ".sorted.bam")), ")")
   bai.links <- paste0("[ bai ](./", file.path(output.dir, paste0(sample.ids, ".sorted.bam.bai")), ")")
 
-  mqc <- read.table(file.path(output.dir, "multiqc_data", "multiqc_hisat2.txt"), sep="\t", header=TRUE)
-  #mqc <- format(mqc, scientific=FALSE, big.mark=",")
+  # mqc <- read.table(file.path(output.dir, "multiqc", "multiqc_data", "multiqc_hisat2.txt"), sep="\t", header=TRUE)
+  # #mqc <- format(mqc, scientific=FALSE, big.mark=",")
+  #
+  # Table1 <- mqc
+  # colnames(Table1)[1] <- "SampleID"
+  # Table1$Files <- paste0(bam.links, ", ", bai.links)
+  # Table1 <- Table1[ match(sample.ids, Table1$SampleID), ]
 
-  Table1 <- data.frame(SampleID=mqc$Sample,
-                       Total_Reads=mqc$unpaired_total,
-                       Unaligned=mqc$unpaired_aligned_none,
-                       Aligned_Once=mqc$unpaired_aligned_one,
-                       Aligned_Multiple=mqc$unpaired_aligned_multi,
-                       Alignment_Rate=paste0(mqc$overall_alignment_rate, "%"),
-                       Files=paste0(bam.links, ", ", bai.links))
-
-  Figure1 <- function() {
-    tab <- Table1[ , c(1, 3:5) ]
-    #tab[,-1] <- t(t(tab[,-1]) / colSums(tab[,-1]))
-
-    mdf <- melt(tab)
-
-    plot(ggplot(mdf, aes(x=SampleID, weight=value, fill=variable)) +
-           geom_bar() +
-           ylab("Number of Reads") +
-           xlab("") +
-           theme(axis.text.x = element_text(angle=45, hjust=1)) +
-           scale_fill_brewer(palette="Set3"))
-
-  }
-
-  # Setup the output chunks
-  chunks <- list(
-    fig1 = figure_chunk(
-      title = "Barchart of mapped reads",
-      description = "Barchart showing number of reads that failed to map, mapped once or mapped in multiple locations.",
-      fun = Figure1,
-      width= 8,
-      height = 4
-    ),
-    tab1 = table_chunk(
-      title="Summary of mapped reads",
-      description="Summary of mapped reads showing the number of processed reads, number of reads that failed to align, aligned only once or aligned in multiple locations.",
-      dataframe=Table1,
-      collapsed = TRUE
-    )
-  )
+  commands <- commands_chunk(
+    commands.filename = paste0(log.basename, ".commands.sh"),
+    stdout.filename = paste0(log.basename, ".stdout.txt"),
+    stderr.filename = paste0(log.basename, ".stderr.txt"),
+    title = "Mapping with Hisat2",
+    description="Commands executed to map reads with Hisat2.",
+    collapsed=TRUE)
 
   return(list(title=title,
-              chunks=chunks,
+              chunks=list(
+                commands = commands,
+                figure_hisat2 = multiqc$chunks$figure_hisat2,
+                table_hisat2 = multiqc$chunks$table_hisat2
+              ),
               par=mget(names(formals()),sys.frame(sys.nframe())),
-              description=MODULE.DESCRIPTION))
+              description=MODULE.DESCRIPTION,
+              bam.pathnames=target.files,
+              commands=map.cmds))
 }
